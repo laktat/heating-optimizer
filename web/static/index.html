@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Optimalizace vytápění</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="nav">
+      <header>
+        <h1>Optimalizace vytápění</h1>
+        <div class="sub">diagnostika · simulace · úspory</div>
+      </header>
+      <nav>
+        <div class="group">Vyhodnocení</div>
+        <a data-view="overview"><span class="dot"></span><span>Proč tolik spotřebuje</span></a>
+        <a data-view="faults"><span class="dot"></span><span>Závady</span><span class="val" id="nav-faults"></span></a>
+        <div class="group">Soustava</div>
+        <a data-view="hydraulics"><span class="dot off"></span><span>Simulace větví</span></a>
+        <a data-view="optimize"><span class="dot off"></span><span>Optimální nastavení</span></a>
+        <div class="group">Peníze</div>
+        <a data-view="savings"><span class="dot off"></span><span>Úspory a návratnost</span></a>
+        <div class="group">Data</div>
+        <a data-view="bms"><span class="dot off"></span><span>Napojení na bms-monitor</span></a>
+      </nav>
+      <div id="link-state"><span class="dot"></span><span>počítám…</span></div>
+      <div id="version"></div>
+    </aside>
+
+    <main id="main">
+      <div id="topbar">
+        <h2 id="view-title">Proč tolik spotřebuje</h2>
+        <span class="spacer"></span>
+        <span class="chip" id="chip-period">měření <b>—</b></span>
+        <span class="chip" id="chip-tariff">ceny <b>—</b></span>
+      </div>
+      <div id="screen"><div class="loading">Počítám týden měření, diagnostiku a roční bilanci…</div></div>
+    </main>
+  </div>
+
+  <div id="tip" role="tooltip"></div>
+
+  <script src="/static/charts.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

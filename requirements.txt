@@ -1,0 +1,10 @@
+# výpočty
+scipy>=1.13
+
+# webové rozhraní
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# testy (nejsou potřeba k provozu)
+pytest>=8.0
+httpx>=0.27
