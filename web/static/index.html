@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>Optimalizace vytápění</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -15,18 +16,23 @@
       </header>
       <nav>
         <div class="group">Vyhodnocení</div>
-        <a data-view="overview"><span class="dot"></span><span>Proč tolik spotřebuje</span></a>
-        <a data-view="faults"><span class="dot"></span><span>Závady</span><span class="val" id="nav-faults"></span></a>
+        <a href="#overview" data-view="overview"><span class="dot"></span><span>Proč tolik spotřebuje</span></a>
+        <a href="#faults" data-view="faults"><span class="dot"></span><span>Závady</span><span class="val" id="nav-faults"></span></a>
         <div class="group">Soustava</div>
-        <a data-view="hydraulics"><span class="dot off"></span><span>Simulace větví</span></a>
-        <a data-view="optimize"><span class="dot off"></span><span>Optimální nastavení</span></a>
+        <a href="#hydraulics" data-view="hydraulics"><span class="dot off"></span><span>Simulace větví</span></a>
+        <a href="#optimize" data-view="optimize"><span class="dot off"></span><span>Optimální nastavení</span></a>
         <div class="group">Peníze</div>
-        <a data-view="savings"><span class="dot off"></span><span>Úspory a návratnost</span></a>
+        <a href="#savings" data-view="savings"><span class="dot off"></span><span>Úspory a návratnost</span></a>
         <div class="group">Data</div>
-        <a data-view="bms"><span class="dot off"></span><span>Napojení na bms-monitor</span></a>
+        <a href="#bms" data-view="bms"><span class="dot off"></span><span>Napojení na bms-monitor</span></a>
       </nav>
-      <div id="link-state"><span class="dot"></span><span>počítám…</span></div>
-      <div id="version"></div>
+      <footer>
+        <div class="seg" id="theme" role="group" aria-label="Vzhled">
+          <button data-t="auto" class="on">Auto</button><button data-t="light">Světlý</button><button data-t="dark">Tmavý</button>
+        </div>
+        <div id="link-state"><span class="dot"></span><span>počítám…</span></div>
+        <div id="version"></div>
+      </footer>
     </aside>
 
     <main id="main">

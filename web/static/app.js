@@ -45,12 +45,71 @@ async function route() {
   screen.innerHTML = `<div class="loading">Načítám…</div>`;
   try {
     await v.render(screen);
+    screen.firstElementChild?.classList.add("enter");
+    syncSegs(screen);
   } catch (e) {
     screen.innerHTML = `<div class="loading">Nepodařilo se načíst data: ${esc(e.message)}</div>`;
     console.error(e);
   }
-  screen.scrollTop = 0;
+  $("#main").scrollTop = 0;
 }
+
+// --- segmentový přepínač -------------------------------------------------------
+// Palec pod vybraným tlačítkem se posouvá z místa, kde právě je — při rychlém
+// překlikání se přesměruje plynule, bez skoku. Nový palec se objeví rovnou na
+// místě, aby nepřijížděl odnikud.
+function syncSegs(root = document) {
+  root.querySelectorAll(".seg").forEach(seg => {
+    const on = seg.querySelector("button.on");
+    let th = seg.querySelector(".thumb");
+    const fresh = !th;
+    if (fresh) {
+      th = document.createElement("span");
+      th.className = "thumb";
+      th.setAttribute("aria-hidden", "true");
+      seg.prepend(th);
+      th.style.transition = "none";
+    }
+    th.style.opacity = on ? 1 : 0;
+    if (on) {
+      th.style.width = on.offsetWidth + "px";
+      th.style.transform = `translateX(${on.offsetLeft}px)`;
+    }
+    if (fresh) requestAnimationFrame(() => { th.style.transition = ""; });
+  });
+}
+// výběr se ukáže hned na stisk, ne až na puštění
+document.addEventListener("pointerdown", e => {
+  const b = e.target.closest(".seg button");
+  if (!b || b.classList.contains("on")) return;
+  const seg = b.closest(".seg");
+  seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  syncSegs(seg.parentElement);
+});
+document.addEventListener("click", e => { if (e.target.closest(".seg")) requestAnimationFrame(() => syncSegs()); });
+addEventListener("resize", () => syncSegs());
+
+// okraj lišty se ukáže, jen když pod ní opravdu roluje obsah
+$("#main").addEventListener("scroll", e => $("#topbar").classList.toggle("scrolled", e.target.scrollTop > 2), { passive: true });
+
+// --- světlý / tmavý režim --------------------------------------------------------
+const THEME_KEY = "ho-theme";
+function applyTheme(t) {
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  document.querySelectorAll("#theme button").forEach(b => b.classList.toggle("on", b.dataset.t === (t || "auto")));
+  syncSegs($("#nav"));
+}
+(() => {
+  let t = "auto";
+  try { t = localStorage.getItem(THEME_KEY) || "auto"; } catch (_) { /* prohlížeč bez úložiště */ }
+  applyTheme(t);
+  $("#theme").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    try { localStorage.setItem(THEME_KEY, b.dataset.t); } catch (_) { /* nevadí */ }
+    applyTheme(b.dataset.t);
+  });
+})();
 document.querySelectorAll("#nav a").forEach(a => a.addEventListener("click", () => { location.hash = a.dataset.view; }));
 addEventListener("hashchange", route);
 
@@ -99,9 +158,11 @@ function findingItem(f, compact) {
     <span class="mark" aria-hidden="true"></span>
     <div>
       <div class="head"><span class="cat">${esc(f.category)}</span>${esc(f.title)}</div>
-      <div class="detail">${esc(f.detail)}</div>
-      <div class="evidence">${ev}</div>
-      <div class="rec">${esc(f.recommendation)}</div>
+      <div class="more"><div>
+        <div class="detail">${esc(f.detail)}</div>
+        <div class="evidence">${ev}</div>
+        <div class="rec">${esc(f.recommendation)}</div>
+      </div></div>
     </div>
     <span class="sev">${SEV[f.severity]}</span>
   </li>`;
@@ -137,7 +198,7 @@ async function renderOverview(el) {
       </div>
       <div class="panel"><h3>Co je špatně <span class="count ${counts.critical ? "bad" : ""}">${o.findings.length}</span></h3>
         <ul class="finds compact">${o.findings.map(f => findingItem(f, true)).join("")}</ul>
-        <div class="note">Kliknutím se zjištění rozbalí. Úplné důkazy jsou na obrazovce <a href="#faults" style="color:var(--accent)">Závady</a>.</div>
+        <div class="note">Kliknutím se zjištění rozbalí. Úplné důkazy jsou na obrazovce <a href="#faults">Závady</a>.</div>
       </div>
     </div>
     <div class="panel"><h3>Balíčky opatření</h3>
@@ -216,7 +277,7 @@ async function renderFaults(el) {
         `<button data-id="${r.id}" class="${i === 0 ? "on" : ""}">${esc(r.short)}</button>`).join("")}</div></div>
       ${legend([{ name: "teplota prostoru", color: "var(--s1)" }, { name: "žádaná", color: "var(--mute)", kind: "dash" }])}
       <div id="ch-room"></div>
-      <div id="ch-valve-wrap"><h3 style="margin-top:14px">Povel zónového ventilu</h3><div id="ch-valve"></div></div>
+      <div id="ch-valve-wrap"><h3 class="sub-h">Povel zónového ventilu</h3><div id="ch-valve"></div></div>
     </div>
   </div>`;
   el.querySelectorAll(".finds > li").forEach(li => li.addEventListener("click", () => li.classList.toggle("open")));
@@ -262,7 +323,7 @@ async function renderHydraulics(el) {
       <select class="select" id="st-sel">${states.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join("")}</select>
       <span class="lbl2" style="margin-left:10px">Venku</span>
       <input type="range" id="t-out" min="-15" max="15" step="1" value="${sim.t_out}" style="width:180px;accent-color:var(--accent)">
-      <output id="t-out-v" style="font-weight:650;font-variant-numeric:tabular-nums">${sim.t_out} °C</output>
+      <output id="t-out-v">${sim.t_out} °C</output>
       <div class="seg" id="occ"><button data-v="1" class="on">provoz</button><button data-v="0">mimo provoz</button></div>
     </div>
     <div class="panel" style="padding:8px 10px"><div id="plan"></div></div>
@@ -292,25 +353,34 @@ async function renderHydraulics(el) {
   await runSim(true);
 }
 
-let simTimer = null, simSeq = 0;
-function runSim(resetControls = false, annual = false) {
-  clearTimeout(simTimer);
-  return new Promise(res => {
-    simTimer = setTimeout(async () => {
-      const seq = ++simSeq;
-      if (annual) { $("#btn-annual").disabled = true; $("#annual-note").textContent = "počítám typický rok…"; }
-      const body = { base: sim.base, t_out: sim.t_out, occupied: sim.occupied, annual, ...sim.overrides };
-      const r = await api("/api/simulate", body);
-      if (seq !== simSeq && !annual) return res();
-      sim.last = r;
-      drawPlan(r);
-      if (resetControls || !$("#ctl").children.length) drawControls(r.network);
-      drawResult(r);
-      drawDp(r);
-      if (annual) $("#btn-annual").disabled = false;
-      res();
-    }, resetControls || annual ? 0 : 120);
-  });
+// Žádný umělý odklad: první změna se pošle hned. Když ještě běží předchozí
+// výpočet, nečeká se ve frontě — po jeho návratu se pošle jen poslední stav,
+// takže schéma sleduje posuvník bez zpoždění a bez zahlcení serveru.
+let simBusy = false, simQueued = null;
+async function runSim(resetControls = false, annual = false) {
+  if (simBusy && !annual) {
+    simQueued = { resetControls: resetControls || simQueued?.resetControls };
+    return;
+  }
+  simBusy = true;
+  try {
+    if (annual) { $("#btn-annual").disabled = true; $("#annual-note").textContent = "počítám typický rok…"; }
+    const body = { base: sim.base, t_out: sim.t_out, occupied: sim.occupied, annual, ...sim.overrides };
+    const r = await api("/api/simulate", body);
+    sim.last = r;
+    drawPlan(r);
+    if (resetControls || !$("#ctl").children.length) drawControls(r.network);
+    drawResult(r);
+    drawDp(r);
+  } finally {
+    simBusy = false;
+    if (annual) $("#btn-annual").disabled = false;
+  }
+  if (simQueued) {
+    const q = simQueued;
+    simQueued = null;
+    await runSim(q.resetControls);
+  }
 }
 
 function drawControls(n) {
@@ -330,7 +400,7 @@ function drawControls(n) {
       : slider("c-dp", "Žádaná Δp na konci páteře", 5, 120, 1, v("dp_target", n.dp_target ?? 35), x => num(x) + " kPa")}</div>
     <div class="ctl"><label>Útlum mimo provoz</label><span></span>
       <div class="seg" id="c-sb" style="grid-column:1/-1"><button data-v="1" class="${v("setback", n.setback_enabled) ? "on" : ""}">zapnutý</button><button data-v="0" class="${v("setback", n.setback_enabled) ? "" : "on"}">vypnutý</button></div></div>
-    <h3 style="margin-top:12px">Vyvažovací ventily [otáčky 0,5–4]</h3>
+    <h3 class="sub-h">Vyvažovací ventily [otáčky 0,5–4]</h3>
     <div class="turns">${n.branches.map(b => `<span>${esc(b.short)} <small class="mute">DN${b.bv_dn}</small></span>
       <input type="number" min="0.5" max="4" step="0.1" data-bid="${b.id}" value="${(o.turns || {})[b.id] ?? b.bv_turns}">`).join("")}</div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
@@ -358,6 +428,7 @@ function drawControls(n) {
   }));
   $("#c-repair").addEventListener("click", () => { o.repair = !o.repair; drawControls(n); runSim(); });
   $("#c-reset").addEventListener("click", () => { sim.overrides = {}; runSim(true); });
+  syncSegs($("#ctl"));
 }
 
 function drawResult(r) {
@@ -414,8 +485,8 @@ function drawPlan(r) {
   // kotelna
   g += `<rect class="case" x="14" y="86" width="${x0 - 14}" height="400" rx="10"/>
     <text class="ttl" x="30" y="112">Kotelna</text><text class="lbl" x="30" y="128">2 × 400 kW, kondenzační</text>
-    <rect class="case" x="30" y="214" width="86" height="72" rx="6" style="fill:#223047"/><text class="lbl-sm" x="73" y="254" text-anchor="middle">Kotel 1</text>
-    <rect class="case" x="130" y="214" width="86" height="72" rx="6" style="fill:#223047"/><text class="lbl-sm" x="173" y="254" text-anchor="middle">Kotel 2</text>
+    <rect x="30" y="214" width="86" height="72" rx="6" class="case-2"/><text class="lbl-sm" x="73" y="254" text-anchor="middle">Kotel 1</text>
+    <rect x="130" y="214" width="86" height="72" rx="6" class="case-2"/><text class="lbl-sm" x="173" y="254" text-anchor="middle">Kotel 2</text>
     <text class="lbl" x="30" y="318">přívod / zpátečka</text>
     <text class="v-lg t-warm" x="30" y="346">${num(s.t_supply, 1)}</text><text class="v-lg t-cold" x="118" y="346">${num(s.t_return, 1)}</text><text class="lbl" x="200" y="346">°C</text>
     <text class="lbl" x="30" y="372">teplo</text><text class="v" x="${x0 - 12}" y="372" text-anchor="end">${num(s.heat_kw)} kW</text>
@@ -423,7 +494,7 @@ function drawPlan(r) {
     <text class="lbl" x="30" y="416">účinnost</text><text class="v ${s.boiler_eta > 1.0 ? "t-ok" : "t-warn"}" x="${x0 - 12}" y="416" text-anchor="end">${num(s.boiler_eta * 100, 1)} %</text>
     <text class="lbl" x="30" y="438">průtok</text><text class="v" x="${x0 - 12}" y="438" text-anchor="end">${num(s.q_total, 1)} m³/h</text>
     <text class="lbl" x="30" y="460">křivka</text><text class="v-sm" x="${x0 - 12}" y="460" text-anchor="end">${num(n.curve_slope, 2)} / ${n.curve_shift >= 0 ? "+" : ""}${num(n.curve_shift, 1)} K</text>
-    ${n.header_sensor_error ? `<text class="lbl-sm t-bad" x="30" y="478" style="fill:var(--bad)!important">čidlo rozdělovače ${num(n.header_sensor_error, 1)} K</text>` : ""}`;
+    ${n.header_sensor_error ? `<text class="lbl-sm t-bad" x="30" y="478">čidlo rozdělovače ${num(n.header_sensor_error, 1)} K</text>` : ""}`;
   // čerpadlo
   const px = x0 + 34;
   g += `<circle cx="${px}" cy="${yS}" r="17" class="case" style="fill:var(--panel)"/>
@@ -450,7 +521,7 @@ function drawPlan(r) {
     g += `<path class="valve bv" d="M${xr - 9},${by - 7} L${xr + 9},${by + 7} L${xr + 9},${by - 7} L${xr - 9},${by + 7} Z"/>
       <line x1="${xr - 7}" y1="${by - 13}" x2="${xr + 7}" y2="${by - 13}" stroke="var(--accent)" stroke-width="2"/>
       <text class="v-sm" x="${xr + 14}" y="${by + 4}">${num(b.bv_turns, 1)} ot.</text>`;
-    if (b.kv_obstruction) g += `<circle cx="${xr}" cy="${by + 26}" r="6" fill="var(--bad)"/><text class="lbl-sm" x="${xr + 10}" y="${by + 30}" style="fill:#ffb9b3!important">sítko</text>`;
+    if (b.kv_obstruction) g += `<circle cx="${xr}" cy="${by + 26}" r="6" fill="var(--bad)"/><text class="lbl-sm t-bad" x="${xr + 10}" y="${by + 30}">sítko</text>`;
 
     // zóna
     const cold = r_.t_room < r_.setpoint - 0.5, hot = r_.t_room > r_.setpoint + 1.5;
@@ -471,7 +542,7 @@ function drawPlan(r) {
       <text class="lbl" x="${bx}" y="${yTop + 192}">ochlazení</text><text class="v-sm ${r_.t_supply - r_.t_return < 10 && r_.flow > 0.2 ? "t-warn" : ""}" x="${bx + bw}" y="${yTop + 192}" text-anchor="end">${num(r_.t_supply - r_.t_return, 1)} K</text>
       <text class="lbl" x="${bx}" y="${yTop + 212}">výkon</text><text class="v-sm" x="${bx + bw}" y="${yTop + 212}" text-anchor="end">${num(r_.power)} kW</text>
       <text class="lbl" x="${bx}" y="${yTop + 232}">Δp větve</text><text class="v-sm" x="${bx + bw}" y="${yTop + 232}" text-anchor="end">${num(r_.dp)} kPa</text>
-      <text class="lbl-sm" x="${bx}" y="${yTop + 256}" ${b.valve_stuck != null ? 'style="fill:#ffb9b3!important"' : ""}>${b.kvs ? (b.valve_stuck != null ? `pohon zaseklý na ${num(b.valve_stuck * 100)} %` : `zónový ventil Kvs ${num(b.kvs, 1)}`) : "bez regulace"}</text>`;
+      <text class="lbl-sm ${b.valve_stuck != null ? "t-bad" : ""}" x="${bx}" y="${yTop + 256}">${b.kvs ? (b.valve_stuck != null ? `pohon zaseklý na ${num(b.valve_stuck * 100)} %` : `zónový ventil Kvs ${num(b.kvs, 1)}`) : "bez regulace"}</text>`;
   });
   g += `</svg>`;
   $("#plan").innerHTML = g;
